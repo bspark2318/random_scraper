@@ -42,15 +42,17 @@ class CryptoPotatoScraper(BaseScraper):
 
         timeframe = "today" if self.days_back == 1 else f"last {self.days_back} days"
         print(f"Articles to visit ({timeframe}): {len(articles_to_visit)}")
-
-        # COME BACK
-        # return
+        articles = []
+        for url in articles_to_visit:
+             articles += self.visit_and_get_article(driver, url)
+        
+        return articles
 
     def visit_and_get_article(self, driver, url):
         """Visit an article and extract its content"""
         print(f"Visiting article: {url}")
 
-        articles = []
+        article_texts = []
         driver.get(url)
 
         # Wait for page to load
@@ -73,9 +75,9 @@ class CryptoPotatoScraper(BaseScraper):
         else:
             content = 'No content'
 
-        articles.append({'title': title, 'content': content})
+        article_texts.append({'title': title, 'content': content})
 
-        return articles
+        return article_texts
 
     def _is_within_date_range(self, date_str):
         """

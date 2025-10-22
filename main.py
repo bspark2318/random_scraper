@@ -2,8 +2,9 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 import time
-from utils import CryptoPotatoScraper
+from utils import CryptoPotatoScraper, OpenAIAnalyzer
 
 websites = [
     "https://cryptopotato.com/tag/solana/",
@@ -12,7 +13,7 @@ websites = [
 
 # Initialize scrapers
 # Change days_back to control how far back to search (1 = today only, 7 = last week, etc.)
-crypto_potato_scraper = CryptoPotatoScraper(days_back=1)
+crypto_potato_scraper = CryptoPotatoScraper(days_back=2)
 
 
 def scrape_yahoo_finance(driver, soup):
@@ -32,7 +33,8 @@ def scrape_website(driver, url):
     print(f"\nVisiting: {url}")
     driver.get(url)
 
-    # Wait for page to load
+    # Wait for pa
+    # ge to load
     time.sleep(3)
 
     # Get page source and parse with BeautifulSoup
@@ -51,6 +53,11 @@ def scrape_website(driver, url):
     return None
 
 def main():
+    load_dotenv()
+
+    # Initialize OpenAI analyzer after loading env vars
+    openai_analyzer = OpenAIAnalyzer()
+
     # Set up Chrome driver
     options = webdriver.ChromeOptions()
     # options.add_argument('--headless')  # Uncomment to run in headless mode
@@ -61,11 +68,32 @@ def main():
     driver = webdriver.Chrome(service=service, options=options)
 
     try:
+        all_analyses = []
+
         for website in websites:
             data = scrape_website(driver, website)
             # Process the returned data as needed
             if data:
-                print(f"Scraped data: {data}")
+                print(f"Scraped {len(data)} articles from {website}")
+
+                # Analyze articles for this website
+                print(f"\nAnalyzing {len(data)} articles from {website}...")
+                analysis = openai_analyzer.analyze_all_articles(data, website)
+                all_analyses.append({
+                    'website': website,
+                    'analysis': analysis
+                })
+
+        # Display results
+        if all_analyses:
+            print("\n" + "="*80)
+            print("ANALYSIS RESULTS")
+            print("="*80)
+            for item in all_analyses:
+                print(f"\nWebsite: {item['website']}")
+                print(f"Summary: {item['analysis']['summary']}")
+                print(f"Sentiment: {item['analysis']['sentiment']}")
+                print("-"*80)
 
     finally:
         driver.quit()

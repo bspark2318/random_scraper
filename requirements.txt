@@ -1,5 +1,6 @@
-selenium 
+selenium
 beautifulsoup4
 requests
 lxml
 webdriver_manager
+openai
