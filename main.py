@@ -1,56 +1,16 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-import time
-from utils import CryptoPotatoScraper, OpenAIAnalyzer
-
-websites = [
-    "https://cryptopotato.com/tag/solana/",
-    "https://finance.yahoo.com/quote/SOL-USD/",
-]
+from utils import CryptoPotatoScraper, OpenAIAnalyzer, YahooFinanceScraper
 
 # Initialize scrapers
 # Change days_back to control how far back to search (1 = today only, 7 = last week, etc.)
-crypto_potato_scraper = CryptoPotatoScraper(days_back=2)
-
-
-def scrape_yahoo_finance(driver, soup):
-    """Extract Solana price data from Yahoo Finance"""
-    # TODO: Implement scraping logic
-    print("Processing Yahoo Finance...")
-    return {}
-
-# Map domains to their processing functions
-SCRAPERS = {
-    "cryptopotato.com": crypto_potato_scraper.scrape_func,
-    "finance.yahoo.com": scrape_yahoo_finance,
-}
-
-def scrape_website(driver, url):
-    """Visit a website and scrape its content"""
-    print(f"\nVisiting: {url}")
-    driver.get(url)
-
-    # Wait for pa
-    # ge to load
-    time.sleep(3)
-
-    # Get page source and parse with BeautifulSoup
-    soup = BeautifulSoup(driver.page_source, 'html.parser')
-
-    # Extract text content
-    print(f"Title: {driver.title}")
-    print(f"Page length: {len(soup.get_text())} characters")
-
-    # Find and execute the appropriate scraper
-    for domain, scraper_func in SCRAPERS.items():
-        if domain in url:
-            return scraper_func(driver, soup)
-
-    print(f"No scraper found for {url}")
-    return None
+# crypto_potato_scraper = CryptoPotatoScraper(days_back=2)
 
 def main():
     load_dotenv()
@@ -66,34 +26,39 @@ def main():
 
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
-
+    yahoo_finance_scraper = YahooFinanceScraper(driver)
+    
+    SCRAPERS = [
+        yahoo_finance_scraper,
+        # crypto_potato_scraper,
+    ]
+    
     try:
         all_analyses = []
+        for scraper in SCRAPERS:
+            scraper.scrape_website()
+        # # Process the returned data as needed
+        # if data:
+        #     print(f"Scraped {len(data)} articles from {website}")
 
-        for website in websites:
-            data = scrape_website(driver, website)
-            # Process the returned data as needed
-            if data:
-                print(f"Scraped {len(data)} articles from {website}")
+        #     # Analyze articles for this website
+        #     print(f"\nAnalyzing {len(data)} articles from {website}...")
+        #     analysis = openai_analyzer.analyze_all_articles(data, website)
+        #     all_analyses.append({
+        #         'website': website,
+        #         'analysis': analysis
+        #     })
 
-                # Analyze articles for this website
-                print(f"\nAnalyzing {len(data)} articles from {website}...")
-                analysis = openai_analyzer.analyze_all_articles(data, website)
-                all_analyses.append({
-                    'website': website,
-                    'analysis': analysis
-                })
-
-        # Display results
-        if all_analyses:
-            print("\n" + "="*80)
-            print("ANALYSIS RESULTS")
-            print("="*80)
-            for item in all_analyses:
-                print(f"\nWebsite: {item['website']}")
-                print(f"Summary: {item['analysis']['summary']}")
-                print(f"Sentiment: {item['analysis']['sentiment']}")
-                print("-"*80)
+        # # Display results
+        # if all_analyses:
+        #     print("\n" + "="*80)
+        #     print("ANALYSIS RESULTS")
+        #     print("="*80)
+        #     for item in all_analyses:
+        #         print(f"\nWebsite: {item['website']}")
+        #         print(f"Summary: {item['analysis']['summary']}")
+        #         print(f"Sentiment: {item['analysis']['sentiment']}")
+        #         print("-"*80)
 
     finally:
         driver.quit()
