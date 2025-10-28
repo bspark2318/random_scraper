@@ -7,17 +7,22 @@ from openai import OpenAI
 class OpenAIAnalyzer:
     """Handles article analysis using OpenAI API"""
 
-    def __init__(self, api_key=None, cache_dir="cache"):
+    def __init__(self, api_key=None, cache_dir="cache", max_cache_days=5):
         """
         Initialize the OpenAI analyzer.
 
         Args:
             api_key (str, optional): OpenAI API key. If not provided, uses OPENAI_API_KEY env variable.
             cache_dir (str): Directory to store cached responses. Default is "cache".
+            max_cache_days (int): Maximum number of days to keep cached results. Default is 5.
         """
         self.client = OpenAI(api_key=api_key or os.getenv('OPENAI_KEY'))
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
+        self.max_cache_days = max_cache_days
+
+        # Clean up old cache files
+        self._cleanup_old_cache()
 
     def _get_cache_filename(self, topic):
         """Generate cache filename based on website and today's date"""
@@ -45,6 +50,34 @@ class OpenAIAnalyzer:
         cache_file = self._get_cache_filename(topic)
         return cache_file.exists()
 
+    def _cleanup_old_cache(self):
+        """Remove cache files older than max_cache_days"""
+        if not self.cache_dir.exists():
+            return
+
+        from datetime import timedelta
+        now = datetime.now()
+        cutoff_date = now - timedelta(days=self.max_cache_days)
+
+        removed_count = 0
+        for cache_file in self.cache_dir.glob("*.json"):
+            # Extract date from filename (format: topic_YYYY-MM-DD.json)
+            try:
+                # Get the last part before .json and extract date
+                filename = cache_file.stem  # removes .json
+                date_str = filename.split('_')[-1]  # get YYYY-MM-DD part
+                file_date = datetime.strptime(date_str, "%Y-%m-%d")
+
+                if file_date < cutoff_date:
+                    cache_file.unlink()
+                    removed_count += 1
+            except (ValueError, IndexError):
+                # Skip files that don't match expected format
+                continue
+
+        if removed_count > 0:
+            print(f"Cleaned up {removed_count} old cache file(s)")
+
     def analyze_all_articles(self, articles, topic):
         """
         Analyze all articles together for an overall summary and sentiment.
@@ -68,7 +101,7 @@ class OpenAIAnalyzer:
 {combined_text}
 
 Please provide:
-1. A one-paragraph summary no more than 400 words MAX that synthesizes the key themes and information across ALL articles
+1. A one-paragraph summary no more than 200 words MAX that synthesizes the key themes and information across ALL articles
 2. An overall sentiment analysis for stock evaluation (bullish/bearish/neutral) with reasoning
 
 Format your response as:
