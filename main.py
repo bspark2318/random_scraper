@@ -6,7 +6,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from dotenv import load_dotenv
-from utils import CryptoPotatoScraper, OpenAIAnalyzer, YahooFinanceScraper
+from utils import CryptoPotatoScraper, OpenAIAnalyzer, YahooFinanceScraper, TelegramNotifier
 
 # Initialize scrapers
 # Change days_back to control how far back to search (1 = today only, 7 = last week, etc.)
@@ -15,50 +15,47 @@ from utils import CryptoPotatoScraper, OpenAIAnalyzer, YahooFinanceScraper
 def main():
     load_dotenv()
 
-    # Initialize OpenAI analyzer after loading env vars
+    # Initialize OpenAI analyzer and Telegram notifier after loading env vars
     openai_analyzer = OpenAIAnalyzer()
+    telegram_notifier = TelegramNotifier()
 
     # Set up Chrome driver
     options = webdriver.ChromeOptions()
-    # options.add_argument('--headless')  # Uncomment to run in headless mode
+    options.add_argument('--headless')
     options.add_argument('--incognito')
     options.add_argument('--disable-popup-blocking')
 
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
-    yahoo_finance_scraper = YahooFinanceScraper(driver)
+    topics = ["Solana", "VEEVA", "ASTS"]
+    yahoo_finance_scraper = YahooFinanceScraper(driver, list_of_search_words=topics)
     
     SCRAPERS = [
-        yahoo_finance_scraper,
-        # crypto_potato_scraper,
+        yahoo_finance_scraper
     ]
+    
+    summaries = []
     
     try:
         all_analyses = []
         for scraper in SCRAPERS:
-            scraper.scrape_website()
-        # # Process the returned data as needed
-        # if data:
-        #     print(f"Scraped {len(data)} articles from {website}")
+            for topic in topics:
+                if openai_analyzer.is_analysis_cached(topic):
+                    analysis = openai_analyzer.load_from_cache(topic)
+                    summaries.append({"topic": topic, **analysis})
+                else:
+                    articles = scraper.scrape_website()
+                    articles_list = articles.get(topic, [])
+                    print(f"\nScraped {len(articles_list)} articles for topic: {topic}")
+                    analysis = openai_analyzer.analyze_all_articles(articles_list, topic)
+                    summaries.append({"topic": topic, **analysis})
 
-        #     # Analyze articles for this website
-        #     print(f"\nAnalyzing {len(data)} articles from {website}...")
-        #     analysis = openai_analyzer.analyze_all_articles(data, website)
-        #     all_analyses.append({
-        #         'website': website,
-        #         'analysis': analysis
-        #     })
-
-        # # Display results
-        # if all_analyses:
-        #     print("\n" + "="*80)
-        #     print("ANALYSIS RESULTS")
-        #     print("="*80)
-        #     for item in all_analyses:
-        #         print(f"\nWebsite: {item['website']}")
-        #         print(f"Summary: {item['analysis']['summary']}")
-        #         print(f"Sentiment: {item['analysis']['sentiment']}")
-        #         print("-"*80)
+        # Send all summaries to Telegram
+        if summaries:
+            print("\n" + "="*60)
+            print("Sending summaries to Telegram...")
+            telegram_notifier.send_multiple_summaries(summaries)
+            print("="*60)
 
     finally:
         driver.quit()

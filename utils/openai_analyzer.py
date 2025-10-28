@@ -19,48 +19,51 @@ class OpenAIAnalyzer:
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
 
-    def _get_cache_filename(self, website_name):
+    def _get_cache_filename(self, topic):
         """Generate cache filename based on website and today's date"""
         today = datetime.now().strftime("%Y-%m-%d")
-        safe_website_name = website_name.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "_")
+        safe_website_name = topic.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "_")
         return self.cache_dir / f"{safe_website_name}_{today}.json"
 
-    def _load_from_cache(self, website_name):
+    def load_from_cache(self, topic):
         """Load analysis from cache if it exists for today"""
-        cache_file = self._get_cache_filename(website_name)
+        cache_file = self._get_cache_filename(topic)
         if cache_file.exists():
+            print(f"Loading cached analysis for {topic}")
             with open(cache_file, 'r') as f:
                 return json.load(f)
         return None
 
-    def _save_to_cache(self, website_name, analysis):
+    def _save_to_cache(self, topic, analysis):
         """Save analysis to cache"""
-        cache_file = self._get_cache_filename(website_name)
+        cache_file = self._get_cache_filename(topic)
         with open(cache_file, 'w') as f:
             json.dump(analysis, f, indent=2)
+            
+    def is_analysis_cached(self, topic):
+        """Check if analysis is already cached for today"""
+        cache_file = self._get_cache_filename(topic)
+        return cache_file.exists()
 
-    def analyze_all_articles(self, articles, website_name):
+    def analyze_all_articles(self, articles, topic):
         """
         Analyze all articles together for an overall summary and sentiment.
 
         Args:
             articles (list): List of dictionaries with 'title' and 'content' keys
-            website_name (str): Name/URL of the website for caching purposes
+            topic (str): Name/URL of the website for caching purposes
 
         Returns:
             dict: Dictionary containing 'summary', 'sentiment', and 'reasoning' keys
         """
-        # Check cache first
-        cached_result = self._load_from_cache(website_name)
-        if cached_result:
-            print(f"Using cached analysis for {website_name}")
-            return cached_result
+        print(f"\nAnalyzing articles for {topic}...")
+
         # Combine all articles into one text block
         combined_text = ""
+
         for i, article in enumerate(articles, 1):
             combined_text += f"\n\nArticle {i}:\nTitle: {article['title']}\nContent: {article['content']}\n"
-
-        prompt = f"""Analyze the following collection of cryptocurrency articles about Solana:
+        prompt = f"""Analyze the following collection of cryptocurrency articles about {topic}:
 
 {combined_text}
 
@@ -73,8 +76,8 @@ Summary: [your summary here]
 
 Sentiment: [bullish/bearish/neutral]
 """
-
         try:
+            print(f"Calling OpenAI API for topic: {topic}...")
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
@@ -84,15 +87,13 @@ Sentiment: [bullish/bearish/neutral]
                 temperature=0.5,
                 max_tokens=800
             )
-
             analysis = response.choices[0].message.content
             result = self._parse_response(analysis)
-
+            print(f"Analysis complete for {topic} - Sentiment: {result.get('sentiment', 'unknown')}")
             # Save to cache
-            self._save_to_cache(website_name, result)
-
+            self._save_to_cache(topic, result)
+            print(f"Saved analysis to cache: {self._get_cache_filename(topic).name}")
             return result
-
         except Exception as e:
             print(f"Error analyzing articles: {e}")
             return {"summary": "Error analyzing articles", "sentiment": "unknown"}

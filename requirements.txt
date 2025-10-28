@@ -4,3 +4,4 @@ requests
 lxml
 webdriver_manager
 openai
+python-telegram-bot

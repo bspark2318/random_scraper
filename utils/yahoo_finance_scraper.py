@@ -13,7 +13,7 @@ from .base_scraper import BaseScraper
 class YahooFinanceScraper:
     """Scraper for CryptoPotato website"""
 
-    def __init__(self, driver, days_back=1, num_articles=5, list_of_search_words=None):
+    def __init__(self, driver, days_back=1, num_articles=4, list_of_search_words=None):
         """
         Initialize the scraper.
 
@@ -24,50 +24,66 @@ class YahooFinanceScraper:
         self.days_back = days_back
         self.num_articles = num_articles
         self.base_url = "https://finance.yahoo.com/"
+        self.website_name = "yahoo_finance"
         self.list_of_search_words = list_of_search_words or ["Solana"]
     
     def scrape_website(self):
         """Visit a website and scrape its content"""
-        print(f"\Starting from: {self.base_url}")
+        output = {}
+
+        print(f"Starting from: {self.base_url}")
+        print(f"Will search for {len(self.list_of_search_words)} term(s): {', '.join(self.list_of_search_words)}")
+
         for search_term in self.list_of_search_words:
+            print(f"\n{'='*60}")
             print(f"Searching for: {search_term}")
-            self._scrape_website(search_term)
-        
+            print(f"{'='*60}")
+            scraped_articles = self._scrape_website(search_term)
+            output[search_term] = scraped_articles
+            print(f"Completed search for '{search_term}': {len(scraped_articles)} articles scraped")
 
-        # Find and execute the appropriate scraper
-        # for domain, scraper_func in SCRAPERS.items():
-        #     if domain in url:
-        #         return scraper_func(self.driver, soup)
-
-        # print(f"No scraper found for {url}")
-        return None
+        print(f"\n{'='*60}")
+        print(f"Total scraping complete: {sum(len(articles) for articles in output.values())} articles across {len(output)} search term(s)")
+        print(f"{'='*60}\n")
+        return output
 
     def _scrape_website(self, search_term):
         self._navigate_and_search(search_term)
         articles_to_visit = self._gather_links()
-        article_texts = []
+        articles = []
         for url in articles_to_visit:
-            article_texts += self._visit_and_get_article(url)
+            articles += self._visit_and_get_article(url)
         
-        print(f"Scraped {len(article_texts)} articles from Yahoo Finance")
-        print(article_texts)
+        print(f"Scraped {len(articles)} articles from Yahoo Finance")
+        return articles
         
     def _navigate_and_search(self, search_term):
         """Navigate to the website and perform search"""
+        print(f"Navigating and searching for '{search_term}'...")
         self.driver.get(self.base_url)
         # Wait until the search box is visible
-        wait = WebDriverWait(self.driver, 5)
-        search_box = search_box = wait.until(EC.visibility_of_element_located((By.ID, "ybar-sbq")))
+        wait = WebDriverWait(self.driver, 3)
+        search_box = wait.until(EC.visibility_of_element_located((By.ID, "ybar-sbq")))
         search_box.send_keys(search_term)
         search_box.send_keys(Keys.RETURN)
+        time.sleep(5)  # Wait for search results to load
+        print("Search complete, page loaded")
         
     
     def _gather_links(self):
         """Extract article links from Yahoo Finance search results"""
         print("Gathering article links from Yahoo Finance...")
         soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-        # Find all content divs that contain articles
-        content_divs = soup.find_all('div', class_='content yf-lfbf5f')
+
+        # First find the recent news section
+        recent_news_section = soup.find('section', {'data-testid': 'recent-news'})
+        if not recent_news_section:
+            print("Warning: Could not find recent news section")
+            return []
+
+        # Find all content divs within the recent news section
+        content_divs = recent_news_section.find_all('div', class_='content')
+        print(f"Found {len(content_divs)} articles in recent news section")
         articles_to_visit = []
 
         for content_div in content_divs:
