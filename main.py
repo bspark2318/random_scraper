@@ -6,7 +6,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from dotenv import load_dotenv
-from utils import CryptoPotatoScraper, OpenAIAnalyzer, YahooFinanceScraper, TelegramNotifier
+from utils import OpenAIAnalyzer, YahooFinanceScraper, TelegramNotifier
 
 # Initialize scrapers
 # Change days_back to control how far back to search (1 = today only, 7 = last week, etc.)
@@ -27,7 +27,7 @@ def main():
 
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
-    topics = ["Solana", "VEEVA", "ASTS"]
+    topics = ["Solana", "BYDDY", "ASTS", "QUBT", "IONQ"]
     yahoo_finance_scraper = YahooFinanceScraper(driver, list_of_search_words=topics)
     
     SCRAPERS = [
@@ -37,7 +37,6 @@ def main():
     summaries = []
     
     try:
-        all_analyses = []
         for scraper in SCRAPERS:
             for topic in topics:
                 if openai_analyzer.is_analysis_cached(topic):
