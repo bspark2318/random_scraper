@@ -31,3 +31,5 @@ Thumbs.db
 # Chrome driver
 chromedriver
 chromedriver.exe
+
+.claude
