@@ -24,9 +24,15 @@ def main():
     options.add_argument('--headless')
     options.add_argument('--incognito')
     options.add_argument('--disable-popup-blocking')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
 
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
+
+    # Set timeouts to prevent hanging
+    driver.set_page_load_timeout(30)
+    driver.set_script_timeout(30)
     topics = ["Solana", "BYDDY", "ASTS", "QUBT", "IONQ"]
     yahoo_finance_scraper = YahooFinanceScraper(driver, list_of_search_words=topics)
     

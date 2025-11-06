@@ -62,18 +62,36 @@ class YahooFinanceScraper:
         print(f"Navigating and searching for '{search_term}'...")
         self.driver.get(self.base_url)
         # Wait until the search box is visible
-        wait = WebDriverWait(self.driver, 3)
+        wait = WebDriverWait(self.driver, 10)
         search_box = wait.until(EC.visibility_of_element_located((By.ID, "ybar-sbq")))
         search_box.send_keys(search_term)
         search_box.send_keys(Keys.RETURN)
-        time.sleep(5)  # Wait for search results to load
-        print("Search complete, page loaded")
+
+        # Wait for search results to actually load
+        try:
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'section[data-testid="recent-news"]')))
+            time.sleep(2)  # Brief pause for any remaining JS to execute
+            print("Search complete, page loaded")
+        except Exception as e:
+            print(f"Warning: Timeout waiting for recent news section: {e}")
+            time.sleep(5)  # Fallback to fixed wait
         
     
     def _gather_links(self):
         """Extract article links from Yahoo Finance search results"""
         print("Gathering article links from Yahoo Finance...")
-        soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+
+        # Ensure page is ready before getting source
+        try:
+            self.driver.execute_script("return document.readyState") == "complete"
+        except Exception as e:
+            print(f"Warning: Could not verify page ready state: {e}")
+
+        try:
+            soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+        except Exception as e:
+            print(f"Error getting page source: {e}")
+            return []
 
         # First find the recent news section
         recent_news_section = soup.find('section', {'data-testid': 'recent-news'})
@@ -127,13 +145,18 @@ class YahooFinanceScraper:
         print(f"Visiting article: {url}")
 
         article_texts = []
-        self.driver.get(url)
+        try:
+            self.driver.get(url)
 
-        # Wait for page to load
-        self.driver.implicitly_wait(5)
+            # Wait for article body to load
+            wait = WebDriverWait(self.driver, 10)
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.body')))
 
-        # Get page source and parse with BeautifulSoup
-        soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+            # Get page source and parse with BeautifulSoup
+            soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+        except Exception as e:
+            print(f"Error loading article {url}: {e}")
+            return []
 
         # Extract title - Yahoo Finance uses h1 with class 'cover-title yf-1rjrr1'
         title_tag = soup.find('h1', class_='cover-title yf-1rjrr1')
